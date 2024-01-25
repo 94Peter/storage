@@ -23,3 +23,7 @@ go.work
 *.json
 
 *.txt
+
+.env
+conf/*
+bin/*

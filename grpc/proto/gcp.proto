@@ -1,0 +1,67 @@
+syntax = "proto3";  // 定義要使用的 protocol buffer 版本
+
+option go_package = "grpc/pb";
+package storage;
+
+import "google/protobuf/empty.proto";
+
+message Dir {
+  string path = 1;
+}
+
+message ObjectKey {
+  string key = 1;
+}
+
+message Url {
+  string url = 1;
+}
+
+message File {
+  bytes file = 1;
+}
+
+message GetSignedUrlRequest {
+  string key = 1;
+  string content_type = 2;
+  uint32 expire_secs = 3;
+}
+
+message AccessToken {
+  string access_token = 1;
+  string token_type = 2;
+  string refresh_token = 3;
+  int64  expiry = 4;
+}
+
+message SaveFileRequest {
+  string key = 1;
+  bytes file = 2;
+}
+
+message ListResponse {
+  repeated string files = 1;
+}
+
+message ExistResponse {
+  bool exist = 1;
+}
+
+service GcpService {
+  // 取得下載連結
+  rpc GetDownloadUrl(ObjectKey) returns (Url) {};
+  // 取得檔案
+  rpc GetFile(ObjectKey) returns (File) {};
+  // 取得簽章
+  rpc GetSignedUrl(GetSignedUrlRequest) returns (Url) {};
+  // 取得 AccessToken
+  rpc GetAccessToken(google.protobuf.Empty) returns (AccessToken) {};
+  // 儲存檔案
+  rpc SaveFile(SaveFileRequest) returns (Url) {};
+  // 刪除
+  rpc Delete(ObjectKey) returns (google.protobuf.Empty) {};
+  // 檢查檔案是否存在
+  rpc Exist(ObjectKey) returns (ExistResponse) {};
+  // 列出
+  rpc List(Dir) returns (ListResponse) {};
+}

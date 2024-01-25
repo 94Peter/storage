@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/iam"
@@ -21,6 +22,7 @@ import (
 	"golang.org/x/oauth2/jwt"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+	"gopkg.in/yaml.v3"
 )
 
 type Perm string
@@ -47,6 +49,7 @@ type GcpStorage interface {
 type GcpConf struct {
 	CredentialsFile string `yaml:"credentailsFile"`
 	CredentailsUrl  string `yaml:"credentailsUrl"`
+	Bucket          string `yaml:"bucket"`
 }
 
 func downloadFile(filepath string, url string) error {
@@ -72,7 +75,7 @@ func downloadFile(filepath string, url string) error {
 	return err
 }
 
-func (gcp *GcpConf) NewStorage(ctx context.Context, bucket string) (GcpStorage, error) {
+func (gcp *GcpConf) NewStorage(ctx context.Context) (GcpStorage, error) {
 	if gcp.CredentailsUrl != "" {
 		filePath := fmt.Sprintf("/tmp/%s.json", filenameEncode(gcp.CredentailsUrl))
 		if !fileExists(filePath) {
@@ -94,7 +97,7 @@ func (gcp *GcpConf) NewStorage(ctx context.Context, bucket string) (GcpStorage, 
 
 	return &storageImpl{
 		ctx:         ctx,
-		bucket:      bucket,
+		bucket:      gcp.Bucket,
 		GcpConf:     gcp,
 		jsonData:    jsonKey,
 		credentials: credentails,
@@ -312,6 +315,9 @@ func (gcp *storageImpl) List(dir string) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Bucket(%q).Objects: %w", gcp.bucket, err)
 		}
+		if strings.HasSuffix(attrs.Name, "/") {
+			continue
+		}
 		result = append(result, attrs.Name)
 	}
 	return result, nil
@@ -329,4 +335,30 @@ func fileExists(filename string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+type GcpConfigMap interface {
+	GetConfig(key string) *GcpConf
+}
+
+type gcpConfigMap map[string]*GcpConf
+
+func (m *gcpConfigMap) GetConfig(key string) *GcpConf {
+	return (*m)[key]
+}
+
+func LoadGcpConfigMap(file string) (GcpConfigMap, error) {
+	result := make(gcpConfigMap)
+	// read file
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal yaml to result
+	err = yaml.Unmarshal(data, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
