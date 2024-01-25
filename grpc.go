@@ -57,20 +57,20 @@ func (s *grpcStorage) Close() {
 }
 
 func (gcp *grpcStorage) Save(filePath string, file []byte) (string, error) {
-	return gcp.write(filePath, func(w io.Writer) error {
+	return gcp.Write(filePath, func(w io.Writer) error {
 		_, err := w.Write(file)
 		return err
 	})
 }
 
 func (gcp *grpcStorage) SaveByReader(fp string, reader io.Reader) (string, error) {
-	return gcp.write(fp, func(w io.Writer) error {
+	return gcp.Write(fp, func(w io.Writer) error {
 		_, err := io.Copy(w, reader)
 		return err
 	})
 }
 
-func (gcp *grpcStorage) write(key string, writeData func(w io.Writer) error) (path string, err error) {
+func (gcp *grpcStorage) Write(key string, writeData func(w io.Writer) error) (path string, err error) {
 	clt := pb.NewGcpServiceClient(gcp.conn)
 	buf := new(bytes.Buffer)
 	if err = writeData(buf); err != nil {
