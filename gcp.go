@@ -41,6 +41,7 @@ type GcpStorage interface {
 	Storage
 	GetAttr(key string) (*googstorage.ObjectAttrs, error)
 	GetDownloadUrl(key string) (myurl string, err error)
+	Write(key string, writeData func(w io.Writer) error) (path string, err error)
 	OpenFile(key string) (io.Reader, error)
 	SignedURL(key string, contentType string, expDuration time.Duration) (url string, err error)
 	GetAccessToken() (*oauth2.Token, error)
@@ -117,20 +118,20 @@ func (gcp *storageImpl) getClient() (*googstorage.Client, error) {
 }
 
 func (gcp *storageImpl) Save(filePath string, file []byte) (string, error) {
-	return gcp.write(filePath, func(w io.Writer) error {
+	return gcp.Write(filePath, func(w io.Writer) error {
 		_, err := w.Write(file)
 		return err
 	})
 }
 
 func (gcp *storageImpl) SaveByReader(fp string, reader io.Reader) (string, error) {
-	return gcp.write(fp, func(w io.Writer) error {
+	return gcp.Write(fp, func(w io.Writer) error {
 		_, err := io.Copy(w, reader)
 		return err
 	})
 }
 
-func (gcp *storageImpl) write(key string, writeData func(w io.Writer) error) (path string, err error) {
+func (gcp *storageImpl) Write(key string, writeData func(w io.Writer) error) (path string, err error) {
 	client, err := gcp.getClient()
 	if err != nil {
 		err = fmt.Errorf("storage.NewClient: %v", err)
