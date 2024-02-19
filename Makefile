@@ -6,7 +6,7 @@ gen-code:
 	protoc --go_out=. --go-grpc_out=. grpc/proto/*.proto
 	
 build-docker-img:
-	docker build -t $(NAME):dev .
+	docker buildx build --platform linux/amd64,linux/arm64 -t $(NAME):dev .
 	docker rmi -f $$(docker images --filter "dangling=true" -q --no-trunc)
 
 push-docker:
