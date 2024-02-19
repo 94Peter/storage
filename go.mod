@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/iam v1.1.5
 	cloud.google.com/go/storage v1.36.0
 	github.com/94peter/di v1.0.0
-	github.com/94peter/log v1.0.2
+	github.com/94peter/log v1.0.3
 	github.com/joho/godotenv v1.5.1
 	github.com/pkg/errors v0.9.1
 	golang.org/x/oauth2 v0.16.0
