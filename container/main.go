@@ -1,26 +1,26 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"time"
 
-	"github.com/94peter/di"
 	"github.com/94peter/log"
+	"github.com/94peter/microservice"
+	"github.com/94peter/microservice/di"
+	"github.com/94peter/microservice/grpc_tool"
+	healthpb "github.com/94peter/microservice/grpc_tool/health/pb"
 	"github.com/94peter/storage"
 	"github.com/94peter/storage/container/service"
 	"github.com/94peter/storage/grpc/pb"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 var (
-	envMode = flag.String("em", "local", "local, container")
-
 	v         = flag.Bool("v", false, "version")
 	Version   = "1.0.0"
 	BuildTime = time.Now().Local().GoString()
@@ -35,66 +35,69 @@ func main() {
 		return
 	}
 
-	if *envMode == "local" {
-		err := godotenv.Load(".env")
+	exePath, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	envFile := exePath + "/.env"
+	if fileExists(envFile) {
+		err := godotenv.Load(envFile)
 		if err != nil {
-			fmt.Println("No .env file")
+			panic("load .env file fail")
 		}
 	}
 
-	confPath := os.Getenv("CONF_PATH")
-	serviceName := os.Getenv(("SERVICE"))
-	hdstore := storage.NewHdStorage(confPath)
-	mydi := &mydi{
-		serviceName: serviceName,
-	}
-	confByte, err := hdstore.Get("config.yml")
+	modelCfg, err := storage.GetConfigFromEnv()
 	if err != nil {
-		panic(err)
-	}
-	err = di.InitConfByByte(confByte, mydi)
-	if err != nil {
-		panic(err)
-	}
-	if err = mydi.IsConfEmpty(); err != nil {
 		panic(err)
 	}
 
-	for {
-		runGrpc(mydi)
-		time.Sleep(time.Second)
+	microService, err := microservice.New(modelCfg, &mydi{})
+	if err != nil {
+		panic(err)
 	}
+
+	service := newService(microService)
+	microservice.RunService(
+		service.runGrpc,
+	)
 
 }
 
-func runGrpc(mydi *mydi) {
-	port := ":" + os.Getenv("GRPC_PORT")
-
-	confPath := os.Getenv("GCP_CONF_MAP_PATH")
-	configMap, err := storage.LoadGcpConfigMap(confPath)
-	if err != nil {
-		panic("load gcp conf map fail: " + err.Error())
+func newService(microService microservice.MicroService[*storage.Config, *mydi]) *myservice {
+	return &myservice{
+		MicroService: microService,
 	}
-	l, err := mydi.NewLogger(mydi.GetService(), "grpc")
+}
+
+type myservice struct {
+	microservice.MicroService[*storage.Config, *mydi]
+}
+
+func (s *myservice) runGrpc(ctx context.Context) {
+	cfg, err := s.NewCfg("grpc")
 	if err != nil {
 		panic(err)
 	}
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		l.Fatalf("failed to listen: %v", err)
-	}
-	s := grpc.NewServer()
-	reflection.Register(s)
-	pb.RegisterGcpServiceServer(s, service.NewGcp(configMap, l))
 
-	l.Infof("app gRPC server is running [%s].", port)
-	if err := s.Serve(lis); err != nil {
-		l.Fatalf("failed to serve: %v", err)
+	grpcCfg, err := grpc_tool.GetConfigFromEnv()
+	if err != nil {
+		panic(err)
 	}
+	grpcCfg.SetRegisterServiceFunc(func(s *grpc.Server) {
+		pb.RegisterGcpServiceServer(s, service.NewGcp(cfg))
+		healthpb.RegisterHealthServer(s, service.NewHealthService())
+	})
+
+	grpcCfg.Logger = cfg.Log
+
+	grpc_tool.RunGrpcServ(ctx, grpcCfg)
+
 }
 
 type mydi struct {
-	serviceName string
+	di.CommonServiceDI
 
 	*log.LoggerConf `yaml:"log"`
 }
@@ -106,6 +109,10 @@ func (d *mydi) IsConfEmpty() error {
 	return nil
 }
 
-func (d *mydi) GetService() string {
-	return d.serviceName
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }

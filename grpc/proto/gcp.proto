@@ -15,6 +15,8 @@ message ObjectKey {
 
 message Url {
   string url = 1;
+  bool is_public = 2;
+  AccessToken token = 3;
 }
 
 message File {

@@ -14,10 +14,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func NewGcp(gcpConfig storage.GcpConfigMap, log log.Logger) pb.GcpServiceServer {
+func NewGcp(cfg *storage.Config) pb.GcpServiceServer {
 	return &gcp{
-		configMap: gcpConfig,
-		log:       log,
+		configMap: cfg.ConfMap,
+		log:       cfg.Log,
 	}
 }
 
@@ -66,7 +66,15 @@ func (gcp *gcp) GetDownloadUrl(ctx context.Context, key *pb.ObjectKey) (*pb.Url,
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	return &pb.Url{Url: url}, nil
+	return &pb.Url{
+		Url:      url.Url,
+		IsPublic: url.IsPublic,
+		Token: &pb.AccessToken{
+			AccessToken:  url.AccessToken.AccessToken,
+			RefreshToken: url.AccessToken.RefreshToken,
+			TokenType:    url.AccessToken.TokenType,
+			Expiry:       url.AccessToken.Expiry.Unix(),
+		}}, nil
 }
 
 // 取得檔案

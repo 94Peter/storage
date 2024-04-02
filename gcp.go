@@ -16,7 +16,6 @@ import (
 
 	"cloud.google.com/go/iam"
 	googstorage "cloud.google.com/go/storage"
-	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
@@ -40,7 +39,7 @@ type GcpDI interface {
 type GcpStorage interface {
 	Storage
 	GetAttr(key string) (*googstorage.ObjectAttrs, error)
-	GetDownloadUrl(key string) (myurl string, err error)
+	GetDownloadUrl(key string) (myurl *DownloadUrl, err error)
 	Write(key string, writeData func(w io.Writer) error) (path string, err error)
 	OpenFile(key string) (io.Reader, error)
 	SignedURL(key string, contentType string, expDuration time.Duration) (url string, err error)
@@ -199,7 +198,13 @@ const (
 	_Role_ObjectReader = iam.RoleName("roles/storage.legacyObjectReader")
 )
 
-func (gcp *storageImpl) GetDownloadUrl(key string) (myurl string, err error) {
+type DownloadUrl struct {
+	IsPublic    bool
+	Url         string
+	AccessToken *oauth2.Token
+}
+
+func (gcp *storageImpl) GetDownloadUrl(key string) (myurl *DownloadUrl, err error) {
 	client, err := gcp.getClient()
 	if err != nil {
 		err = fmt.Errorf("storage.NewClient: %v", err)
@@ -211,7 +216,7 @@ func (gcp *storageImpl) GetDownloadUrl(key string) (myurl string, err error) {
 
 	policy, err := bucketHandler.IAM().Policy(gcp.ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	members := policy.Members(_Role_ObjectReader)
 	isPublic := false
@@ -222,8 +227,16 @@ func (gcp *storageImpl) GetDownloadUrl(key string) (myurl string, err error) {
 		}
 	}
 
+	myurl = &DownloadUrl{
+		IsPublic: isPublic,
+	}
+
 	if !isPublic {
-		return "", errors.New("bucket is not public")
+		token, err := gcp.GetAccessToken()
+		if err != nil {
+			return nil, err
+		}
+		myurl.AccessToken = token
 	}
 
 	objectHandle := bucketHandler.Object(key)
@@ -240,7 +253,7 @@ func (gcp *storageImpl) GetDownloadUrl(key string) (myurl string, err error) {
 	if err != nil {
 		return
 	}
-	myurl = rel.String()
+	myurl.Url = rel.String()
 	return
 }
 

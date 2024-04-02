@@ -116,19 +116,28 @@ func (gcp *grpcStorage) FileExist(fp string) (bool, error) {
 	return rsp.Exist, nil
 }
 
-func (gcp *grpcStorage) GetDownloadUrl(key string) (myurl string, err error) {
+func (gcp *grpcStorage) GetDownloadUrl(key string) (myurl *DownloadUrl, err error) {
 	clt := pb.NewGcpServiceClient(gcp.conn)
 	url, err := clt.GetDownloadUrl(gcp.ctx, &pb.ObjectKey{Key: key})
 	if err != nil {
 		return
 	}
-	myurl = url.Url
+	myurl = &DownloadUrl{
+		Url:      url.Url,
+		IsPublic: url.IsPublic,
+		AccessToken: &oauth2.Token{
+			AccessToken:  url.Token.AccessToken,
+			TokenType:    url.Token.TokenType,
+			RefreshToken: url.Token.RefreshToken,
+			Expiry:       time.Unix(url.Token.Expiry, 0),
+		},
+	}
 	return
 }
 
-func (gcp *grpcStorage) SignedURL(key string, contentType string, expSecs time.Duration) (string, error) {
+func (gcp *grpcStorage) SignedURL(key string, contentType string, expirationDuration time.Duration) (string, error) {
 	clt := pb.NewGcpServiceClient(gcp.conn)
-	url, err := clt.GetSignedUrl(gcp.ctx, &pb.GetSignedUrlRequest{Key: key, ContentType: contentType, ExpireSecs: uint32(expSecs / time.Second)})
+	url, err := clt.GetSignedUrl(gcp.ctx, &pb.GetSignedUrlRequest{Key: key, ContentType: contentType, ExpireSecs: uint32(expirationDuration / time.Second)})
 	if err != nil {
 		return "", err
 	}
