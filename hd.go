@@ -10,7 +10,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewHdStorage(path string) Storage {
+type HdStorage interface {
+	Storage
+	FullPath(key string) string
+}
+
+func NewHdStorage(path string) HdStorage {
 	if !strings.HasSuffix(path, "/") {
 		path = path + "/"
 	}
@@ -51,6 +56,10 @@ func (hd *hd) SaveByReader(fp string, reader io.Reader) (string, error) {
 		return "", err
 	}
 	return absFilePath, nil
+}
+
+func (hd *hd) FullPath(key string) string {
+	return hd.getAbsFilePath(key)
 }
 
 func (hd *hd) Delete(filePath string) error {
