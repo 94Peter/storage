@@ -66,15 +66,20 @@ func (gcp *gcp) GetDownloadUrl(ctx context.Context, key *pb.ObjectKey) (*pb.Url,
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	return &pb.Url{
+	response := &pb.Url{
 		Url:      url.Url,
 		IsPublic: url.IsPublic,
-		Token: &pb.AccessToken{
+	}
+
+	if url.AccessToken != nil {
+		response.Token = &pb.AccessToken{
 			AccessToken:  url.AccessToken.AccessToken,
 			RefreshToken: url.AccessToken.RefreshToken,
 			TokenType:    url.AccessToken.TokenType,
 			Expiry:       url.AccessToken.Expiry.Unix(),
-		}}, nil
+		}
+	}
+	return response, nil
 }
 
 // 取得檔案

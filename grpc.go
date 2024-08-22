@@ -120,17 +120,19 @@ func (gcp *grpcStorage) GetDownloadUrl(key string) (myurl *DownloadUrl, err erro
 	clt := pb.NewGcpServiceClient(gcp.conn)
 	url, err := clt.GetDownloadUrl(gcp.ctx, &pb.ObjectKey{Key: key})
 	if err != nil {
-		return
+		return nil, err
 	}
 	myurl = &DownloadUrl{
 		Url:      url.Url,
 		IsPublic: url.IsPublic,
-		AccessToken: &oauth2.Token{
+	}
+	if url.Token != nil {
+		myurl.AccessToken = &oauth2.Token{
 			AccessToken:  url.Token.AccessToken,
 			TokenType:    url.Token.TokenType,
 			RefreshToken: url.Token.RefreshToken,
 			Expiry:       time.Unix(url.Token.Expiry, 0),
-		},
+		}
 	}
 	return
 }
