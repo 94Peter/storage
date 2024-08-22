@@ -188,7 +188,12 @@ func (gcp *storageImpl) GetAttr(key string) (*googstorage.ObjectAttrs, error) {
 func (gcp *storageImpl) FileExist(fp string) (bool, error) {
 	_, err := gcp.GetAttr(fp)
 	if err != nil {
-		return false, err
+		errIsObjNotExist := strings.Contains(err.Error(), "object doesn't exist")
+		if errIsObjNotExist {
+			return false, nil
+		} else {
+			return false, err
+		}
 	}
 	return true, nil
 }
