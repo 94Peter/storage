@@ -24,7 +24,7 @@ type GrpcGcpStorage interface {
 func NewGrpcGcpStorage(ctx context.Context, address string, channel string) (GrpcGcpStorage, error) {
 	md := metadata.New(map[string]string{"X-Channel": channel})
 	ctx = metadata.NewOutgoingContext(ctx, md)
-	conn, err := getClient(address)
+	conn, err := getClient(ctx, address)
 	if err != nil {
 		return nil, err
 	}
@@ -34,8 +34,8 @@ func NewGrpcGcpStorage(ctx context.Context, address string, channel string) (Grp
 	}, nil
 }
 
-func getClient(address string) (*grpc.ClientConn, error) {
-	conn, err := grpc.Dial(address,
+func getClient(ctx context.Context, address string) (*grpc.ClientConn, error) {
+	conn, err := grpc.DialContext(ctx, address,
 		grpc.WithTransportCredentials(
 			insecure.NewCredentials(),
 		),
